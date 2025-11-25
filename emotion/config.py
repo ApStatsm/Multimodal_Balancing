@@ -1,7 +1,7 @@
 config = {
     "paths": {
-        "session_folder": r'/Users/apstat/Desktop/02_연구/01_멀티모달 밸런싱/데이터',     #형준이가 준 sessiondata
-        "text_folder": r'/Users/apstat/Desktop/02_연구/01_멀티모달 밸런싱/KEMDy20_v1_2/wav',           #wav 까지만 폴더 지정하면 하위 폴더 돌면서 txt 수집
+        "session_folder": r'/Users/apstat/Desktop/02_연구/Multimodal_Balancing/데이터',     #형준이가 준 sessiondata
+        "text_folder": r'/Users/apstat/Desktop/02_연구/Multimodal_Balancing/KEMDy20_v1_2/wav',           #wav 까지만 폴더 지정하면 하위 폴더 돌면서 txt 수집
     },
 
     "training": {
