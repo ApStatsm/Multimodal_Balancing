@@ -1,14 +1,14 @@
 config = {
     "paths": {
-        "session_folder": r"C:\python\emotion\데이터",
-        "text_folder": r"C:\python\emotion\wav",
+        "session_folder": r'/Users/apstat/Desktop/02_연구/Multimodal_Balancing/데이터',
+        "text_folder": r"/Users/apstat/Desktop/02_연구/Multimodal_Balancing/KEMDy20_v1_2/wav",
     },
 
     "training": {
-        "batch_size": 16,
-        "epochs": 10,        # 10 epoch
+        "batch_size": 32,
+        "epochs": 2,        # 10 epoch
         "learning_rate": 1e-4,
-        "k_folds": 5         # 5-Fold
+        "k_folds": 2         # 5-Fold
     },
 
     "model": {

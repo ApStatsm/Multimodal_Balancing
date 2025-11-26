@@ -3,6 +3,7 @@ from utils import get_device
 from dataset_multimodal import load_data_frames, MultimodalDataset
 from models.multimodal_e2e import MultimodalEndToEnd
 from train import run_epoch, test_multimodal
+import os
 
 import torch
 from torch.utils.data import DataLoader
@@ -16,15 +17,26 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 
+import os  # 파일 경로 처리를 위해 필요합니다
+
 def save_plots_and_report(scenario_name, labels, preds, probs):
     """
-    결과 출력 및 시각화 저장 함수
+    결과 출력 및 시각화 저장 함수 (emotion/result 폴더에 저장)
     """
+    # 📁 1. 저장할 경로 설정 (emotion 폴더 안의 result 폴더)
+    # 윈도우/맥/리눅스 모두 호환되도록 os.path.join 사용
+    output_dir = os.path.join("emotion", "result")
+    
+    # 폴더가 없으면 상위 폴더(emotion)까지 포함해서 자동으로 생성
+    os.makedirs(output_dir, exist_ok=True)  
+    
     print(f"\n>> Classification Report ({scenario_name}):")
     # target_names: 0=Neutral, 1=Biased
     print(classification_report(labels, preds, target_names=["Neutral", "Biased"], digits=4))
 
-    # 1. Confusion Matrix 저장
+    # ===============================
+    # 2. Confusion Matrix 저장
+    # ===============================
     cm = confusion_matrix(labels, preds)
     plt.figure(figsize=(6, 5))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
@@ -33,10 +45,15 @@ def save_plots_and_report(scenario_name, labels, preds, probs):
     plt.ylabel('True')
     plt.title(f'Confusion Matrix - {scenario_name}')
     plt.tight_layout()
-    plt.savefig(f"confusion_matrix_{scenario_name}.png")
+    
+    # 경로 결합: emotion/result/confusion_matrix_...png
+    save_path_cm = os.path.join(output_dir, f"confusion_matrix_{scenario_name}.png")
+    plt.savefig(save_path_cm)
     plt.close()
 
-    # 2. AUC 시각화 저장
+    # ===============================
+    # 3. AUC 시각화 저장
+    # ===============================
     fpr, tpr, _ = roc_curve(labels, probs)
     roc_auc = auc(fpr, tpr)
     
@@ -50,11 +67,13 @@ def save_plots_and_report(scenario_name, labels, preds, probs):
     plt.title(f'ROC - {scenario_name}')
     plt.legend(loc="lower right")
     plt.grid(alpha=0.3)
-    plt.savefig(f"roc_curve_{scenario_name}.png")
+    
+    # 경로 결합: emotion/result/roc_curve_...png
+    save_path_roc = os.path.join(output_dir, f"roc_curve_{scenario_name}.png")
+    plt.savefig(save_path_roc)
     plt.close()
     
-    print(f"✅ Saved plots for {scenario_name}")
-
+    print(f"✅ Saved plots to '{output_dir}' for {scenario_name}")
 
 def main():
     device = get_device()

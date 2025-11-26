@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from tqdm import tqdm  # 🔥 다시 추가
 
 def run_epoch(model, loader, optimizer, device, mode="train"):
     if mode == "train":
@@ -12,8 +13,11 @@ def run_epoch(model, loader, optimizer, device, mode="train"):
     total_loss = 0
     ce = nn.CrossEntropyLoss()
 
+    # 🔥 tqdm으로 로더 감싸기 (진행률 표시)
+    loader_pbar = tqdm(loader, desc=f"{mode.upper()}", leave=False)
+
     with torch.set_grad_enabled(mode == "train"):
-        for text_input, bio_input, label in loader:
+        for text_input, bio_input, label in loader_pbar:
             
             for k in text_input:
                 text_input[k] = text_input[k].to(device)
@@ -34,6 +38,10 @@ def run_epoch(model, loader, optimizer, device, mode="train"):
             correct += (pred == label).sum().item()
             total += label.size(0)
             total_loss += loss.item()
+            
+            # 진행 바 옆에 실시간 Loss/Acc 표시
+            current_acc = correct / total
+            loader_pbar.set_postfix({'loss': loss.item(), 'acc': current_acc})
 
     acc = correct / total
     avg_loss = total_loss / len(loader)
@@ -52,8 +60,11 @@ def test_multimodal(model, loader, device, shuffle_mode="none"):
     all_labels = []
     all_probs = []
 
+    # 테스트 단계에서도 진행 상황 보기
+    loader_pbar = tqdm(loader, desc=f"TEST({shuffle_mode})", leave=True)
+
     with torch.no_grad():
-        for text_input, bio_input, label in loader:
+        for text_input, bio_input, label in loader_pbar:
             
             for k in text_input:
                 text_input[k] = text_input[k].to(device)
@@ -72,7 +83,7 @@ def test_multimodal(model, loader, device, shuffle_mode="none"):
             loss = ce(logits, label)
             total_loss += loss.item()
 
-            # AUC 계산을 위한 확률값 (Class 1에 대한 확률)
+            # AUC 계산용 확률값
             probs = F.softmax(logits, dim=1)[:, 1]
             pred = logits.argmax(dim=1)
             
