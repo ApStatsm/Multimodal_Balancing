@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
-from tqdm import tqdm
-import time
+import torch.nn.functional as F
 
 def run_epoch(model, loader, optimizer, device, mode="train"):
     if mode == "train":
@@ -14,7 +13,7 @@ def run_epoch(model, loader, optimizer, device, mode="train"):
     ce = nn.CrossEntropyLoss()
 
     with torch.set_grad_enabled(mode == "train"):
-        for text_input, bio_input, label in loader: # tqdm 제거 (K-Fold 출력 깔끔하게)
+        for text_input, bio_input, label in loader:
             
             for k in text_input:
                 text_input[k] = text_input[k].to(device)
@@ -40,46 +39,49 @@ def run_epoch(model, loader, optimizer, device, mode="train"):
     avg_loss = total_loss / len(loader)
     return acc, avg_loss
 
-# 🔥 [수정 4] 셔플링 테스트 함수
 def test_multimodal(model, loader, device, shuffle_mode="none"):
     """
     shuffle_mode: "none", "text", "bio"
+    Returns: acc, loss, labels, preds, probs (for AUC)
     """
     model.eval()
-    total, correct = 0, 0
+    total_loss = 0
+    ce = nn.CrossEntropyLoss()
     
     all_preds = []
     all_labels = []
+    all_probs = []
 
     with torch.no_grad():
         for text_input, bio_input, label in loader:
             
-            # GPU 이동
             for k in text_input:
                 text_input[k] = text_input[k].to(device)
             bio_input = bio_input.to(device)
             label = label.to(device)
 
-            # 🎲 셔플 로직 적용 (배치 내 셔플)
+            # 🎲 셔플 로직
             idx = torch.randperm(bio_input.size(0)).to(device)
-
             if shuffle_mode == "text":
-                # 텍스트만 섞음 (Input ID, Mask 등 모두 섞어야 함)
                 for k in text_input:
                     text_input[k] = text_input[k][idx]
-            
             elif shuffle_mode == "bio":
-                # 바이오만 섞음
                 bio_input = bio_input[idx]
 
             logits = model(text_input, bio_input)
-            pred = logits.argmax(dim=1)
+            loss = ce(logits, label)
+            total_loss += loss.item()
 
-            correct += (pred == label).sum().item()
-            total += label.size(0)
+            # AUC 계산을 위한 확률값 (Class 1에 대한 확률)
+            probs = F.softmax(logits, dim=1)[:, 1]
+            pred = logits.argmax(dim=1)
             
             all_preds.extend(pred.cpu().tolist())
             all_labels.extend(label.cpu().tolist())
+            all_probs.extend(probs.cpu().tolist())
 
-    acc = correct / total
-    return acc, all_labels, all_preds
+    correct = sum([p == l for p, l in zip(all_preds, all_labels)])
+    acc = correct / len(all_labels)
+    avg_loss = total_loss / len(loader)
+
+    return acc, avg_loss, all_labels, all_preds, all_probs
