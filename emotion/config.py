@@ -1,13 +1,14 @@
 config = {
     "paths": {
-        "session_folder": r'/Users/apstat/Desktop/02_연구/Multimodal_Balancing/데이터',     #형준이가 준 sessiondata
-        "text_folder": r'/Users/apstat/Desktop/02_연구/Multimodal_Balancing/KEMDy20_v1_2/wav',           #wav 까지만 폴더 지정하면 하위 폴더 돌면서 txt 수집
+        "session_folder": r"C:\python\emotion\데이터",
+        "text_folder": r"C:\python\emotion\wav",
     },
 
     "training": {
         "batch_size": 16,
-        "epochs": 10,
+        "epochs": 10,        # 10 epoch
         "learning_rate": 1e-4,
+        "k_folds": 5         # 5-Fold
     },
 
     "model": {
@@ -16,7 +17,7 @@ config = {
         "bio_hidden_dim": 64,
         "bio_output_dim": 32,
         "fusion_hidden_dim": 256,
-        "num_classes": 2
+        "num_classes": 2     # 이진 분류 (Neutral vs Biased)
     }
 }
 

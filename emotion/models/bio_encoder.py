@@ -5,22 +5,16 @@ class BioLSTMEncoder(nn.Module):
         super().__init__()
         self.lstm = nn.LSTM(input_dim, hidden_dim, batch_first=True)
         self.fc = nn.Linear(hidden_dim, output_dim)
+        
+        # 🔥 [수정 5] Layer Norm 추가
+        self.ln = nn.LayerNorm(output_dim)
 
-        # 🔥 BIO LSTM 동결 (바닐라 멀티모달)
-        # for p in self.lstm.parameters():
-        #     p.requires_grad = False
-        # for p in self.fc.parameters():
-        #     p.requires_grad = False
-
-        # freeze LSTM? → 선택
-        # for p in self.parameters():
-        #     p.requires_grad = False
+        # 🔥 [수정 2] Unfreeze: 파라미터 동결 코드 제거됨 (학습 가능)
 
     def forward(self, x):
-        """
-        x: (B,4) → (B,1,4)
-        """
+        # x: (B, 4) -> (B, 1, 4)
         x = x.unsqueeze(1)
         _, (h, _) = self.lstm(x)
-        h_last = h[-1]         # (B, hidden_dim)
-        return self.fc(h_last) # (B,32)
+        h_last = h[-1]         
+        out = self.fc(h_last)
+        return self.ln(out)    # Apply Layer Norm
