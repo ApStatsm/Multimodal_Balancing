@@ -6,9 +6,9 @@ config = {
 
     "training": {
         "batch_size": 32,
-        "epochs": 2,        # 10 epoch
+        "epochs": 10,        # 10 epoch
         "learning_rate": 1e-4,
-        "k_folds": 2         # 5-Fold
+        "k_folds": 5         # 5-Fold
     },
 
     "model": {
