@@ -109,8 +109,8 @@ def test_multimodal(model, loader, device, shuffle_mode="none"):
             loss = ce(logits, label)
             total_loss += loss.item()
 
-            # AUC 계산용 확률값 (이진 분류 시 1번 클래스 확률)
-            probs = F.softmax(logits, dim=1)[:, 1] 
+            # 필요해?
+            probs = F.softmax(logits, dim=1) 
             pred = logits.argmax(dim=1)
             
             all_preds.extend(pred.cpu().tolist())

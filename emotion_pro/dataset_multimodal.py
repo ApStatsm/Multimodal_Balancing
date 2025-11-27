@@ -25,6 +25,15 @@ class MultimodalDataset(Dataset):
         self.texts = []
         self.bio_features = []
         self.labels = []
+
+        # 🔥 [수정] 감정 라벨 매핑 (Fear, Disgust 제외됨)
+        self.label_map = {
+            "neutral": 0,
+            "surprise": 1,
+            "angry": 2,
+            "sad": 3,
+            "happy": 4
+        }
         
         # ... (이하 기존 __init__ 로직 유지) ...
         for _, row in self.df.iterrows():
@@ -32,8 +41,13 @@ class MultimodalDataset(Dataset):
             
             # 이진 분류: neutral(0) vs others(1)
             raw_emotion = row["Emotion"].lower()
-            # config.py 기준으로 2클래스 이므로 0 또는 1
-            label = 0 if raw_emotion == "neutral" else 1
+            # 정의된 5개 감정 외의 데이터가 들어오면 건너뛰거나 에러 처리
+            if raw_emotion not in self.label_map:
+                print(f"Warning: Unknown emotion '{raw_emotion}' found. Skipping...")
+                continue
+
+            #
+            label = self.label_map[raw_emotion]
 
             bio_vals = [
                 float(row["EDA"]),

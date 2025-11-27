@@ -70,7 +70,7 @@ def save_plots_and_report(scenario_name, labels, preds, probs):
     os.makedirs(output_dir, exist_ok=True)  
     
     # 1. Classification Report
-    target_names = ["Neutral", "Biased"]
+    target_names = ["Neutral", "Surprise", "Angry", "Sad", "Happy"]
     print(f"\n>> Classification Report ({scenario_name}):")
     print(classification_report(labels, preds, target_names=target_names, digits=4))
 
