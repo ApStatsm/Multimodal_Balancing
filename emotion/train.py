@@ -95,4 +95,4 @@ def test_multimodal(model, loader, device, shuffle_mode="none"):
     acc = correct / len(all_labels)
     avg_loss = total_loss / len(loader)
 
-    return acc, avg_loss, all_labels, all_preds, all_probs
+    return acc, avg_loss, all_labels, all_preds

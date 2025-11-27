@@ -16,7 +16,7 @@ config = {
         "bio_hidden_dim": 64,
         "bio_output_dim": 64,
         "fusion_hidden_dim": 256,
-        "num_classes": 2     # 이진 분류 (Neutral vs Biased)
+        "num_classes": 5     # 다중 클래스 분류 (Neutral, Surprise, Angry, Sad, Happy)
     }
 }
 

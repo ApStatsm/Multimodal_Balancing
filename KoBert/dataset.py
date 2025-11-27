@@ -28,9 +28,7 @@ class KoBERTDataset(Dataset):
             "surprise": 1,
             "angry": 2,
             "neutral": 3,
-            "disgust": 4,
-            "fear": 5,
-            "sad": 6
+            "sad": 4
         }
 
         # 라벨 매핑 로그 한 번만 출력
@@ -145,7 +143,7 @@ def load_data_from_folders(tokenizer, csv_path, text_folder,
     else:
         raise ValueError(" No CSV files found in the specified path.")
 
-    #  Segment_ID 기준 그룹화
+        #  Segment_ID 기준 그룹화
     grouped = (
         df.groupby("Segment_ID")["Emotion"]
         .agg(lambda x: x.mode().iloc[0] if not x.mode().empty else x.iloc[0])
@@ -155,26 +153,25 @@ def load_data_from_folders(tokenizer, csv_path, text_folder,
     print(f"Aggregated by Segment_ID → {len(grouped)} unique segments")
     print(" Emotion distribution:\n", grouped["Emotion"].value_counts())
 
-    #  그룹화된 DataFrame 기준으로 분할
-    #  6:2:2 비율로 분할
-    train_df, temp_df = train_test_split(grouped, test_size=0.4,stratify=grouped["Emotion"], random_state=42)  # 60% train, 40% 나머지
-    val_df, test_df = train_test_split(temp_df, test_size=0.5,stratify=temp_df["Emotion"], random_state=42)  # 나머지 절반씩 20% / 20%
+    # ===============================
+    #  8 : 2 비율로 Train / Test 분할
+    # ===============================
+    train_df, test_df = train_test_split(
+        grouped,
+        test_size=0.2,  # 🔸 20% = test
+        stratify=grouped["Emotion"],  # 클래스 비율 유지
+        random_state=42
+    )
 
-    print(f" Dataset split (6:2:2): Train {len(train_df)}, Val {len(val_df)}, Test {len(test_df)}")
+    print(f" Dataset split (8:2): Train {len(train_df)}, Test {len(test_df)}")
 
-    print(f" Dataset split (by Segment_ID): Train {len(train_df)}, Val {len(val_df)}, Test {len(test_df)}")
-
-    #  데이터셋 개수 출력
-    print(f" Dataset split: Train {len(train_df)}, Val {len(val_df)}, Test {len(test_df)}")
-
-    #  DataFrame 전달
+    #  DataFrame → Dataset
     train_set = KoBERTDataset(train_df, text_folder, tokenizer, max_len)
-    val_set = KoBERTDataset(val_df, text_folder, tokenizer, max_len)
     test_set = KoBERTDataset(test_df, text_folder, tokenizer, max_len)
 
     # DataLoader 생성
     train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_set, batch_size=batch_size)
     test_loader = DataLoader(test_set, batch_size=batch_size)
 
-    return train_loader, val_loader, test_loader
+    # ✅ 이제는 train, test만 반환
+    return train_loader, test_loader

@@ -5,6 +5,17 @@ import chardet
 from torch.utils.data import Dataset
 from sklearn.model_selection import train_test_split
 
+# 🔥 [수정] 사용자 지정 순서 적용
+# 0: Neutral, 1: Surprise, 2: Angry, 3: Sad, 4: Happy
+def get_label(emotion_str):
+    e = emotion_str.lower()
+    if "neutral" in e: return 0
+    if "sur" in e: return 1      # surprise
+    if "ang" in e: return 2      # angry, anger
+    if "sad" in e: return 3      # sad, sadness
+    if "hap" in e: return 4      # happy, happiness
+    return -1 # 예외 처리
+
 class MultimodalDataset(Dataset):
     def __init__(self, df, text_folder, tokenizer, max_len=128):
         self.df = df.reset_index(drop=True)
@@ -19,9 +30,13 @@ class MultimodalDataset(Dataset):
         for _, row in self.df.iterrows():
             seg_id = str(row["Segment_ID"]).strip()
             
-            # 이진 분류: neutral(0) vs others(1)
-            raw_emotion = row["Emotion"].lower()
-            label = 0 if raw_emotion == "neutral" else 1
+            # 라벨 매핑
+            raw_emotion = str(row["Emotion"])
+            label = get_label(raw_emotion)
+            
+            # 매핑되지 않는 데이터(fear, disgust 등)는 건너뜀
+            if label == -1:
+                continue
 
             bio_vals = [
                 float(row["EDA"]),
@@ -72,10 +87,6 @@ class MultimodalDataset(Dataset):
         return text_input, bio_input, label
 
 def load_data_frames(session_folder):
-    """
-    CSV를 읽고 전처리한 뒤, Train(80%)/Test(20%) DataFrame을 반환합니다.
-    (Fear, Disgust 제외 로직 추가됨)
-    """
     csv_files = [f for f in os.listdir(session_folder) if f.endswith(".csv")]
     dfs = []
     for fname in csv_files:
@@ -85,7 +96,6 @@ def load_data_frames(session_folder):
     
     df = pd.concat(dfs, ignore_index=True)
     
-    # 세션별 집계
     grouped = (
         df.groupby("Segment_ID")
         .agg({
@@ -96,23 +106,20 @@ def load_data_frames(session_folder):
         .reset_index()
     )
 
-    # 🔥 [추가] Fear, Disgust 제거
-    # 제외할 감정 목록 정의
+    # 1. Fear, Disgust 제거
     exclude_emotions = ['fear', 'disgust']
-    
-    # 해당 감정이 포함되지 않은 데이터만 남김 (~ 연산자 사용)
-    # 대소문자 문제 방지를 위해 .str.lower() 사용
     grouped = grouped[~grouped['Emotion'].str.lower().isin(exclude_emotions)]
     
-    print(f"Dataset Filtered: Removed {exclude_emotions}. Current Size: {len(grouped)}")
-
-    # 이진 분류를 위한 Stratify 기준 생성
-    grouped["target"] = grouped["Emotion"].apply(lambda x: 0 if x.lower()=="neutral" else 1)
+    # 2. Target 컬럼 생성 (Stratify용)
+    grouped["target"] = grouped["Emotion"].apply(lambda x: get_label(str(x)))
+    
+    # -1(매핑 실패) 제거
+    grouped = grouped[grouped["target"] != -1]
 
     # Train(8) : Test(2) 분할
     train_df, test_df = train_test_split(
         grouped, test_size=0.2, stratify=grouped["target"], random_state=42
     )
     
-    print(f"Data Loaded: Train {len(train_df)}, Test {len(test_df)}")
+    print(f"Data Filtered (5 Classes). Train: {len(train_df)}, Test: {len(test_df)}")
     return train_df, test_df
