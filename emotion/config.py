@@ -6,16 +6,15 @@ config = {
 
     "training": {
         "batch_size": 32,
-        "epochs": 2,        # 10 epoch
-        "learning_rate": 1e-4,
-        "k_folds": 2         # 5-Fold
+        "epochs": 10,        # 10 epoch
+        "learning_rate": 3e-4
     },
 
     "model": {
         "max_len": 128,
-        "bio_input_dim": 2,
+        "bio_input_dim": 4,
         "bio_hidden_dim": 64,
-        "bio_output_dim": 32,
+        "bio_output_dim": 64,
         "fusion_hidden_dim": 256,
         "num_classes": 2     # 이진 분류 (Neutral vs Biased)
     }

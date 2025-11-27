@@ -19,15 +19,15 @@ class MultimodalDataset(Dataset):
         for _, row in self.df.iterrows():
             seg_id = str(row["Segment_ID"]).strip()
             
-            # 🔥 [수정 1] 이진 분류: neutral(0) vs others(1)
+            # 이진 분류: neutral(0) vs others(1)
             raw_emotion = row["Emotion"].lower()
             label = 0 if raw_emotion == "neutral" else 1
 
             bio_vals = [
                 float(row["EDA"]),
                 float(row["TEMP"]),
-                # float(row["Valence"]),
-                # float(row["Arousal"])
+                float(row["Valence"]),
+                float(row["Arousal"])
             ]
 
             txt_path = None
@@ -74,7 +74,7 @@ class MultimodalDataset(Dataset):
 def load_data_frames(session_folder):
     """
     CSV를 읽고 전처리한 뒤, Train(80%)/Test(20%) DataFrame을 반환합니다.
-    (K-Fold는 main.py에서 Train DF를 가지고 수행)
+    (Fear, Disgust 제외 로직 추가됨)
     """
     csv_files = [f for f in os.listdir(session_folder) if f.endswith(".csv")]
     dfs = []
@@ -96,10 +96,20 @@ def load_data_frames(session_folder):
         .reset_index()
     )
 
+    # 🔥 [추가] Fear, Disgust 제거
+    # 제외할 감정 목록 정의
+    exclude_emotions = ['fear', 'disgust']
+    
+    # 해당 감정이 포함되지 않은 데이터만 남김 (~ 연산자 사용)
+    # 대소문자 문제 방지를 위해 .str.lower() 사용
+    grouped = grouped[~grouped['Emotion'].str.lower().isin(exclude_emotions)]
+    
+    print(f"Dataset Filtered: Removed {exclude_emotions}. Current Size: {len(grouped)}")
+
     # 이진 분류를 위한 Stratify 기준 생성
     grouped["target"] = grouped["Emotion"].apply(lambda x: 0 if x.lower()=="neutral" else 1)
 
-    # 🔥 [수정 3] Train(8) : Test(2) 분할
+    # Train(8) : Test(2) 분할
     train_df, test_df = train_test_split(
         grouped, test_size=0.2, stratify=grouped["target"], random_state=42
     )

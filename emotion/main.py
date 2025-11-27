@@ -4,12 +4,9 @@ from dataset_multimodal import load_data_frames, MultimodalDataset
 from models.multimodal_e2e import MultimodalEndToEnd
 from train import run_epoch, test_multimodal
 import os
-
 import torch
 from torch.utils.data import DataLoader
-from sklearn.model_selection import StratifiedKFold
 from kobert_tokenizer import KoBERTTokenizer
-import copy
 
 # 📊 시각화 및 평가용 라이브러리
 from sklearn.metrics import classification_report, confusion_matrix, roc_curve, auc
@@ -17,26 +14,17 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 
-import os  # 파일 경로 처리를 위해 필요합니다
-
 def save_plots_and_report(scenario_name, labels, preds, probs):
     """
     결과 출력 및 시각화 저장 함수 (emotion/result 폴더에 저장)
     """
-    # 📁 1. 저장할 경로 설정 (emotion 폴더 안의 result 폴더)
-    # 윈도우/맥/리눅스 모두 호환되도록 os.path.join 사용
     output_dir = os.path.join("emotion", "result")
-    
-    # 폴더가 없으면 상위 폴더(emotion)까지 포함해서 자동으로 생성
     os.makedirs(output_dir, exist_ok=True)  
     
     print(f"\n>> Classification Report ({scenario_name}):")
-    # target_names: 0=Neutral, 1=Biased
     print(classification_report(labels, preds, target_names=["Neutral", "Biased"], digits=4))
 
-    # ===============================
-    # 2. Confusion Matrix 저장
-    # ===============================
+    # Confusion Matrix
     cm = confusion_matrix(labels, preds)
     plt.figure(figsize=(6, 5))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
@@ -45,15 +33,11 @@ def save_plots_and_report(scenario_name, labels, preds, probs):
     plt.ylabel('True')
     plt.title(f'Confusion Matrix - {scenario_name}')
     plt.tight_layout()
-    
-    # 경로 결합: emotion/result/confusion_matrix_...png
     save_path_cm = os.path.join(output_dir, f"confusion_matrix_{scenario_name}.png")
     plt.savefig(save_path_cm)
     plt.close()
 
-    # ===============================
-    # 3. AUC 시각화 저장
-    # ===============================
+    # ROC Curve
     fpr, tpr, _ = roc_curve(labels, probs)
     roc_auc = auc(fpr, tpr)
     
@@ -67,8 +51,6 @@ def save_plots_and_report(scenario_name, labels, preds, probs):
     plt.title(f'ROC - {scenario_name}')
     plt.legend(loc="lower right")
     plt.grid(alpha=0.3)
-    
-    # 경로 결합: emotion/result/roc_curve_...png
     save_path_roc = os.path.join(output_dir, f"roc_curve_{scenario_name}.png")
     plt.savefig(save_path_roc)
     plt.close()
@@ -79,70 +61,57 @@ def main():
     device = get_device()
     print(f"Running on Device: {device}")
 
-    # 데이터 로드
+    # 1. 데이터 로드 (Train 80% : Test 20%)
+    # load_data_frames 내부에서 8:2로 나뉘어 나옵니다.
     train_df, test_df = load_data_frames(config["paths"]["session_folder"])
     tokenizer = KoBERTTokenizer.from_pretrained("skt/kobert-base-v1")
 
-    # K-Fold 설정
-    skf = StratifiedKFold(n_splits=config["training"]["k_folds"], shuffle=True, random_state=42)
+    print(f"\n[Data Split Info]")
+    print(f"Train Set: {len(train_df)} samples")
+    print(f"Test Set : {len(test_df)} samples")
+
+    # 2. DataLoader 생성 (Train만 만듦, Test는 나중에)
+    train_ds = MultimodalDataset(train_df, config["paths"]["text_folder"], tokenizer)
+    train_loader = DataLoader(train_ds, batch_size=config["training"]["batch_size"], shuffle=True)
+
+    # 3. 모델 및 옵티마이저 초기화
+    model = MultimodalEndToEnd(config).to(device)
     
-    best_val_acc = 0.0
-    best_model_state = None
+    # KoBERT 제외 전체 파라미터 학습
+    optimizer = torch.optim.Adam(
+        filter(lambda p: p.requires_grad, model.parameters()), 
+        lr=config["training"]["learning_rate"]
+    )
 
-    print(f"\n[Start {config['training']['k_folds']}-Fold Cross Validation]")
+    print(f"\n[Start Training for {config['training']['epochs']} Epochs]")
 
-    # K-Fold Loop
-    for fold, (train_idx, val_idx) in enumerate(skf.split(train_df, train_df["target"])):
-        print(f"\n=== Fold {fold+1} ===")
+    # 4. Training Loop (검증 없이 학습만 진행)
+    for epoch in range(config["training"]["epochs"]):
+        # Train 모드 실행
+        t_acc, t_loss = run_epoch(model, train_loader, optimizer, device, "train")
         
-        fold_train = train_df.iloc[train_idx]
-        fold_val = train_df.iloc[val_idx]
-
-        train_ds = MultimodalDataset(fold_train, config["paths"]["text_folder"], tokenizer)
-        val_ds = MultimodalDataset(fold_val, config["paths"]["text_folder"], tokenizer)
-        
-        train_loader = DataLoader(train_ds, batch_size=config["training"]["batch_size"], shuffle=True)
-        val_loader = DataLoader(val_ds, batch_size=config["training"]["batch_size"])
-
-        model = MultimodalEndToEnd(config).to(device)
-        
-        # Optimizer: KoBERT 제외 전체 파라미터 학습
-        optimizer = torch.optim.Adam(
-            filter(lambda p: p.requires_grad, model.parameters()), 
-            lr=config["training"]["learning_rate"]
-        )
-
-        for epoch in range(config["training"]["epochs"]):
-            t_acc, t_loss = run_epoch(model, train_loader, optimizer, device, "train")
-            v_acc, v_loss = run_epoch(model, val_loader, optimizer, device, "val")
-            print(f"Ep {epoch+1:02d} | Train: {t_acc:.3f} | Val: {v_acc:.3f}")
-
-        if v_acc > best_val_acc:
-            best_val_acc = v_acc
-            best_model_state = copy.deepcopy(model.state_dict())
-            print(f"⭐️ New Best Model (Val: {best_val_acc:.3f})")
+        # 로그 출력 (Val 없음)
+        print(f"Ep {epoch+1:02d} | Train Acc: {t_acc:.3f} | Train Loss: {t_loss:.4f}")
 
     # ================= FINAL TEST =================
     print("\n\n================ FINAL EVALUATION ================")
     
-    final_model = MultimodalEndToEnd(config).to(device)
-    final_model.load_state_dict(best_model_state)
-    
+    # 학습이 끝난 모델 그대로 사용
     test_ds = MultimodalDataset(test_df, config["paths"]["text_folder"], tokenizer)
     test_loader = DataLoader(test_ds, batch_size=config["training"]["batch_size"])
 
     # 3가지 시나리오 정의
     scenarios = [
         ("1_Normal_Test", "none"),          # 정상
-        ("2_Bio_Only_(Text_Masked)", "text"), # 텍스트 마스킹 (Bio 의존도 확인)
-        ("3_Text_Only_(Bio_Masked)", "bio")   # Bio 마스킹 (Text 의존도 확인)
+        ("2_Bio_Only_(Text_Masked)", "text"), # 텍스트 마스킹
+        ("3_Text_Only_(Bio_Masked)", "bio")   # Bio 마스킹
     ]
 
     for name, mode in scenarios:
         print(f"\n\n🔶 Running Scenario: {name}")
         
         # 1. 테스트 실행
-        acc, loss, labels, preds, probs = test_multimodal(final_model, test_loader, device, shuffle_mode=mode)
+        acc, loss, labels, preds, probs = test_multimodal(model, test_loader, device, shuffle_mode=mode)
         
         # 2. Acc / Loss 출력
         print(f"▶ Test Acc : {acc:.4f}")
