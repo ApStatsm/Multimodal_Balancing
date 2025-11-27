@@ -1,19 +1,19 @@
 config = {
     "paths": {
-        "session_folder": r'/Users/apstat/Desktop/02_연구/Multimodal_Balancing/데이터',
-        "text_folder": r"/Users/apstat/Desktop/02_연구/Multimodal_Balancing/KEMDy20_v1_2/wav",
+        "session_folder": r'/Users/apstat/Desktop/02_연구/Multimodal_Balancing/19data',
+        "text_folder": r"/Users/apstat/Desktop/02_연구/Multimodal_Balancing/KEMDy19_v1_3/wav",
     },
 
     "training": {
         "batch_size": 32,
-        "epochs": 10,        # 10 epoch
+        "epochs": 2,        # 10 epoch
         "learning_rate": 1e-4,
-        "k_folds": 5         # 5-Fold
+        "k_folds": 2         # 5-Fold
     },
 
     "model": {
         "max_len": 128,
-        "bio_input_dim": 4,
+        "bio_input_dim": 2,
         "bio_hidden_dim": 64,
         "bio_output_dim": 32,
         "fusion_hidden_dim": 256,

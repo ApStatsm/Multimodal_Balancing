@@ -1,0 +1,19 @@
+==============================
+ Final Test Results 
+==============================
+
+Test Accuracy : 74.94%
+Test Loss     : 0.6330
+
+Classification Report:
+              precision    recall  f1-score   support
+
+     neutral       0.80      0.88      0.84       709
+    surprise       0.42      0.12      0.19       188
+       angry       0.68      0.78      0.73       315
+         sad       0.77      0.64      0.70       137
+       happy       0.75      0.88      0.81       231
+
+    accuracy                           0.75      1580
+   macro avg       0.68      0.66      0.65      1580
+weighted avg       0.72      0.75      0.72      1580

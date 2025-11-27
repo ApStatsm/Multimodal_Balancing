@@ -26,8 +26,8 @@ class MultimodalDataset(Dataset):
             bio_vals = [
                 float(row["EDA"]),
                 float(row["TEMP"]),
-                float(row["Valence"]),
-                float(row["Arousal"])
+                # float(row["Valence"]),
+                # float(row["Arousal"])
             ]
 
             txt_path = None

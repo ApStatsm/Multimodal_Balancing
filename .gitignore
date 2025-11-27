@@ -180,9 +180,13 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
-/데이터
-emotion/데이터/
-/KEMDy20_v1_2
+# folder
+/19data/
+/20data/
+/emotion/데이터/
+/KEMDy20_v1_2/
+/KEMDy19_v1_3/
+
 *.pt
 *.pth
 .DS_Store
