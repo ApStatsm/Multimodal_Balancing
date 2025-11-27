@@ -12,7 +12,7 @@ class KoBERTClassifier(nn.Module):
         self.classifier = nn.Sequential(
             nn.Linear(768, 64),  # 768 → 64
             nn.ReLU(),  # 활성화
-            nn.Linear(64, num_classes)  # 64 → 7
+            nn.Linear(64, num_classes)  # 64 → 5
         )
     def forward(self, input_ids, attention_mask, token_type_ids):
         outputs = self.bert(

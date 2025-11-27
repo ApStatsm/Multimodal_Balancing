@@ -6,6 +6,7 @@ from torch.utils.data import Dataset, DataLoader
 from sklearn.model_selection import train_test_split
 from kobert_tokenizer import KoBERTTokenizer
 import chardet
+import re
 
 # ===============================
 # KoBERT Dataset Class
@@ -24,11 +25,11 @@ class KoBERTDataset(Dataset):
 
         # 고정된 감정 매핑
         self.label_map = {
-            "happy": 0,
+            "neutral": 0,
             "surprise": 1,
             "angry": 2,
-            "neutral": 3,
-            "sad": 4
+            "sad": 3,
+            "happy": 4
         }
 
         # 라벨 매핑 로그 한 번만 출력
@@ -69,8 +70,14 @@ class KoBERTDataset(Dataset):
                 print(f" {seg_id}.txt 파일을 찾을 수 없습니다.")
                 text = ""
 
-            #  Segment_ID 단위로 1회만 추가
-            self.texts.append(text)
+            # 👇 [수정 후] 텍스트 전처리 로직 추가
+            # 1. 한글, 영문, 숫자, 기본 문장부호(.,?!)를 제외한 잡동사니 제거
+            clean_text = re.sub(r"[^가-힣a-zA-Z0-9\s\.\,\?\!]", "", text)
+            
+            # 2. 불필요한 다중 공백을 하나로 줄임
+            clean_text = re.sub(r"\s+", " ", clean_text).strip()
+
+            self.texts.append(clean_text)
             self.labels.append(label)
 
     # 필수 메서드 (DataLoader용)

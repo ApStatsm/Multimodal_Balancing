@@ -23,13 +23,13 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 def main():
     #  데이터 경로 설정
-    csv_path = r"C:\python\emotion\Session_Data_Split"      # 여러 CSV가 들어있는 폴더
-    text_folder = r"C:\python\emotion\KEMDy19_v1_3\wav"
+    csv_path = r"/Users/apstat/Desktop/02_연구/Multimodal_Balancing/19data"      # 여러 CSV가 들어있는 폴더
+    text_folder = r"/Users/apstat/Desktop/02_연구/Multimodal_Balancing/KEMDy19_v1_3/wav"
 
     num_classes = 5
     epochs = 10
     batch_size = 32
-    lr = 3e-4
+    lr = 5e-5
 
     device = get_device()
     tokenizer = KoBERTTokenizer.from_pretrained('skt/kobert-base-v1')
@@ -41,6 +41,7 @@ def main():
         text_folder=text_folder,
         batch_size=batch_size
     )
+    
 
     model = KoBERTClassifier(num_classes=num_classes).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
@@ -83,11 +84,11 @@ def main():
 
     # 감정 인덱스 ↔ 이름 매핑
     id2label = {
-        0: "happy",
+        0: "neutral",
         1: "surprise",
         2: "angry",
-        3: "neutral",
-        4: "sad"
+        3: "sad",
+        4: "happy"
     }
 
     # 숫자 레이블을 문자열로 변환
