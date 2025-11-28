@@ -10,31 +10,27 @@ from train import train_one_epoch, evaluate
 from inference import show_misclassified
 from utils import get_device
 import time
-from sklearn.metrics import classification_report, accuracy_score, confusion_matrix
+# 1️⃣ [추가] roc_curve, auc 임포트
+from sklearn.metrics import classification_report, accuracy_score, confusion_matrix, roc_curve, auc
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.metrics import confusion_matrix
-from inference import show_misclassified
-from utils import get_device
+import os
 
-from sklearn.metrics import classification_report, confusion_matrix
-
-import matplotlib.pyplot as plt
-import seaborn as sns
 def main():
-    #  데이터 경로 설정
-    csv_path = r"/Users/apstat/Desktop/02_연구/Multimodal_Balancing/19data"      # 여러 CSV가 들어있는 폴더
+    # 경로 설정
+    csv_path = r"/Users/apstat/Desktop/02_연구/Multimodal_Balancing/19data"
     text_folder = r"/Users/apstat/Desktop/02_연구/Multimodal_Balancing/KEMDy19_v1_3/wav"
 
-    num_classes = 5
+    # 설정
+    num_classes = 2      # neutral vs biased
     epochs = 10
     batch_size = 32
-    lr = 5e-5
+    lr = 2e-5
 
     device = get_device()
     tokenizer = KoBERTTokenizer.from_pretrained('skt/kobert-base-v1')
 
-    #  데이터 로드
+    # 데이터 로드
     train_loader, test_loader = load_data_from_folders(
         tokenizer=tokenizer,
         csv_path=csv_path,
@@ -42,12 +38,14 @@ def main():
         batch_size=batch_size
     )
     
-
     model = KoBERTClassifier(num_classes=num_classes).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
     criterion = nn.CrossEntropyLoss()
 
-    print("\n Training Start\n")
+    print(f"\n🚀 Training Start (Epochs: {epochs}, Device: {device})\n")
+    
+    # main.py (for 문 내부 수정)
+
     for epoch in range(epochs):
         start_time = time.time()
 
@@ -56,82 +54,89 @@ def main():
             model, train_loader, optimizer, criterion, device
         )
 
-        # 매 epoch마다 test 성능 체크 (원하면 나중에 빼도 됨)
-        test_loss, test_acc, _, _ = evaluate(
+        # ✅ [수정] 검증 부분: 6개를 반환하므로 받는 변수도 맞춰줌
+        # 기존: test_loss, test_acc, test_auc, _, _ = evaluate(...) (5개 받음 -> 에러)
+        # 변경: test_loss, test_acc, test_auc, _, _, _ = evaluate(...) (6개 받음)
+        test_loss, test_acc, test_auc, _, _, _ = evaluate(
             model, test_loader, criterion, device
         )
 
         end_time = time.time()
         epoch_time = end_time - start_time
 
-        print(f"[Epoch {epoch + 1}]")
-        print(f" Train  Loss: {train_loss:.4f}, Acc: {train_acc:.4f}")
-        print(f" Test   Loss: {test_loss:.4f}, Acc: {test_acc:.4f}")
-        print(f" ⏱️ Time per epoch: {epoch_time:.2f} sec\n")
 
-    #  --- 학습 종료 후, 최종 평가 ---
-    #  --- 학습 종료 후, 최종 평가 ---
-    print("\n--- FINAL Model Evaluation (Test Set) ---")
+        # 에포크 결과 출력 (AUC 추가)
+        print(f"-"*55)
+        print(f"📄 [Epoch {epoch + 1}/{epochs}] Results")
+        print(f"   - Train Loss : {train_loss:.4f} | Acc : {train_acc:.4f}")
+        print(f"   - Test  Loss : {test_loss:.4f} | Acc : {test_acc:.4f} | AUC : {test_auc:.4f}")
+        print(f"   - Time       : {epoch_time:.2f} sec")
+        print(f"-"*55 + "\n")
 
-    # test set에서 최종 loss / acc / 예측 / 정답 모두 계산
-    test_loss, test_acc, preds, trues = evaluate(
+    # --- 최종 평가 ---
+    print("\n🏁 FINAL Model Evaluation (Test Set) ---")
+
+    # 2️⃣ evaluate 함수에서 확률(probs)도 함께 반환받음
+    test_loss, test_acc, test_auc, preds, trues, probs = evaluate(
         model, test_loader, criterion, device
     )
 
-    # 1) Acc / Loss 출력
     print(f"Final Test Loss     : {test_loss:.4f}")
     print(f"Final Test Accuracy : {test_acc:.4f}")
+    print(f"Final Test AUC      : {test_auc:.4f}")
 
-    # 감정 인덱스 ↔ 이름 매핑
-    id2label = {
-        0: "neutral",
-        1: "surprise",
-        2: "angry",
-        3: "sad",
-        4: "happy"
-    }
-
-    # 숫자 레이블을 문자열로 변환
+    id2label = {0: "neutral", 1: "biased"}
     y_test = [id2label[t] for t in trues]
     y_pred_test = [id2label[p] for p in preds]
 
-    # 2) Classification Report 출력
-    print("\nFinal Classification Report (Test Set):")
-    print(classification_report(
-        y_test,
-        y_pred_test,
-        digits=4,  # 소수점 4자리
-        zero_division=0  # 분모가 0인 경우 0으로 처리
-    ))
+    print("\nClassification Report:")
+    print(classification_report(y_test, y_pred_test, digits=4, zero_division=0))
 
-    # 3) Confusion Matrix (숫자 + 이미지 저장)
-    labels_order = list(id2label.values())  # ['happy','surprise','angry','neutral','sad']
+    # --- Confusion Matrix 저장 ---
+    labels_order = ["neutral", "biased"]
     cm = confusion_matrix(y_test, y_pred_test, labels=labels_order)
-
-    print("\nConfusion Matrix (raw counts, Test Set):")
-    print(cm)
-
-    # 이미지로 그리기
-    plt.figure(figsize=(10, 8))
-    sns.heatmap(cm,
-                annot=True,
-                fmt='d',
-                cmap='Blues',
-                xticklabels=labels_order,
-                yticklabels=labels_order)
-
+    
+    plt.figure(figsize=(6, 5))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=labels_order, yticklabels=labels_order)
     plt.xlabel("Predicted Label")
     plt.ylabel("True Label")
-    plt.title("Confusion Matrix (KEMDy20 Test)")
+    plt.title(f"Confusion Matrix (AUC: {test_auc:.4f})")
     plt.tight_layout()
-
-    # 이미지 파일로 저장 (원하는 이름으로 변경 가능)
-    plt.savefig("confusion_matrix_kemdy20.png", dpi=300)
+    plt.show()
+    plt.savefig("kobert confusion_matrix_binary_auc.png", dpi=300)
     plt.close()
+    print("💾 Confusion Matrix saved to 'confusion_matrix_binary_auc.png'")
 
-    # 오분류 샘플 저장/출력
-    show_misclassified(model, test_loader, device)
 
+    # 3️⃣ --- ROC Curve 그래프 그리기 및 저장 ---
+    # FPR, TPR, 임계값 계산
+    fpr, tpr, _ = roc_curve(trues, probs)
+    # AUC 계산 (이미 test_auc로 받았지만, 그래프 범례용으로 다시 계산하거나 그대로 사용 가능)
+    roc_auc = auc(fpr, tpr) 
+
+    plt.figure(figsize=(8, 6))
+    # 짙은 파란색 점선으로 랜덤 추측선 (대각선) 그리기
+    plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+    # 주황색 실선으로 ROC 곡선 그리기
+    plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (area = {roc_auc:.4f})')
+    
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title('ROC - Neutral vs Biased (KoBERT)') # 제목 설정
+    plt.legend(loc="lower right")
+    plt.grid(True, which='both', linestyle='-', linewidth=0.5, color='lightgray') # 그리드 추가
+    plt.tight_layout()
+    plt.show()
+    # 이미지 파일로 저장
+    roc_image_path = "kobert_roc_curve_binary.png"
+    plt.savefig(roc_image_path, dpi=300)
+    plt.close()
+    print(f"💾 ROC Curve saved to '{roc_image_path}'")
+    # -------------------------------------
+
+    show_misclassified(model, test_loader, device, label_map=id2label)
 
 if __name__ == "__main__":
     main()
